@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AquaSense — AI Water Shortage Early Warning System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060f1a;--bg2:#0a1520;--bg3:#0f1d2c;--bg4:#142238;--bg5:#182840;
+  --accent:#00c8f0;--accent2:#00f5c0;--accent3:#3d9fff;--accent4:#7b5fff;
+  --border:rgba(0,200,240,0.12);--border2:rgba(0,200,240,0.25);--border3:rgba(0,200,240,0.4);
+  --text:#dff0ff;--text2:#7aa0b8;--text3:#3d5f75;--text4:#22404f;
+  --low:#00e676;--low2:rgba(0,230,118,0.15);
+  --mod:#ffd740;--mod2:rgba(255,215,64,0.15);
+  --high:#ff8c00;--high2:rgba(255,140,0,0.15);
+  --crit:#ff4444;--crit2:rgba(255,68,68,0.15);
+  --font:'Syne',sans-serif;--mono:'JetBrains Mono',monospace;
+  --radius:10px;--radius-lg:14px;
+  --shadow:0 4px 24px rgba(0,0,0,0.4);
+}
+html,body{height:100%;overflow:hidden;background:var(--bg)}
+body{font-family:var(--font);color:var(--text);display:flex;flex-direction:column}
+
+/* ─── TOPBAR ─── */
+#topbar{
+  height:58px;background:var(--bg2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 20px;gap:14px;flex-shrink:0;
+  position:relative;z-index:100;
+}
+.logo{display:flex;align-items:center;gap:10px;margin-right:auto;cursor:pointer}
+.logo-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;box-shadow:0 0 16px rgba(0,200,240,0.4)}
+.logo-mark svg{width:18px;height:18px;fill:var(--bg)}
+.logo-text{font-size:18px;font-weight:800;letter-spacing:0.06em;color:var(--accent)}
+.logo-sub{font-size:9px;font-family:var(--mono);color:var(--text3);letter-spacing:0.1em}
+
+.sys-status{display:flex;align-items:center;gap:7px;padding:5px 12px;border-radius:20px;
+  background:rgba(0,245,192,0.07);border:1px solid rgba(0,245,192,0.2);cursor:default}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--accent2)}
+.status-dot.live{animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1;box-shadow:0 0 6px var(--accent2)}50%{opacity:0.4;box-shadow:none}}
+.status-label{font-size:11px;font-family:var(--mono);color:var(--accent2);letter-spacing:0.05em}
+
+.search-wrap{position:relative}
+.search-wrap i{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:15px;color:var(--text3)}
+#searchBox{background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+  padding:7px 12px 7px 32px;font-size:12px;font-family:var(--mono);color:var(--text);
+  width:200px;outline:none;transition:border-color 0.2s}
+#searchBox:focus{border-color:var(--border3)}
+#searchBox::placeholder{color:var(--text4)}
+
+.icon-btn{width:36px;height:36px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;
+  transition:border-color 0.2s,background 0.2s}
+.icon-btn:hover{border-color:var(--border2);background:var(--bg4)}
+.icon-btn i{font-size:17px;color:var(--text2)}
+.notif-badge{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;
+  background:var(--crit);font-size:9px;font-family:var(--mono);display:flex;align-items:center;
+  justify-content:center;border:2px solid var(--bg2);color:#fff;padding:0 3px}
+.user-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--accent3),var(--accent));
+  font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;
+  color:var(--bg);cursor:pointer;border:2px solid var(--border2)}
+.date-chip{font-size:11px;font-family:var(--mono);color:var(--text3);padding:4px 10px;
+  background:var(--bg3);border:1px solid var(--border);border-radius:6px}
+
+/* ─── SHELL ─── */
+#shell{display:flex;flex:1;overflow:hidden}
+
+/* ─── SIDEBAR ─── */
+#sidebar{
+  width:230px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;padding:16px 10px;gap:2px;overflow-y:auto;
+  transition:width 0.3s;
+}
+.nav-section-label{font-size:9px;font-family:var(--mono);color:var(--text4);
+  letter-spacing:0.14em;text-transform:uppercase;padding:10px 10px 4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;
+  cursor:pointer;font-size:13px;font-weight:500;color:var(--text2);border:1px solid transparent;
+  transition:all 0.15s;position:relative;text-decoration:none;white-space:nowrap;overflow:hidden}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:rgba(0,200,240,0.1);border-color:var(--border2);color:var(--accent)}
+.nav-item.active::before{content:'';position:absolute;left:0;top:20%;bottom:20%;width:3px;
+  background:var(--accent);border-radius:0 3px 3px 0}
+.nav-item i{font-size:17px;flex-shrink:0}
+.nav-badge{margin-left:auto;padding:2px 7px;border-radius:10px;font-size:10px;font-family:var(--mono);flex-shrink:0}
+.nav-badge.red{background:rgba(255,68,68,0.2);color:var(--crit);border:1px solid rgba(255,68,68,0.3)}
+.nav-badge.amber{background:rgba(255,140,0,0.2);color:var(--high);border:1px solid rgba(255,140,0,0.3)}
+
+.sidebar-model{margin-top:auto;padding:14px;background:rgba(0,200,240,0.04);
+  border:1px solid var(--border);border-radius:12px}
+.model-label{font-size:10px;font-family:var(--mono);color:var(--accent2);margin-bottom:6px;letter-spacing:0.06em}
+.model-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px}
+.model-acc{font-size:11px;color:var(--text2);margin-bottom:10px}
+.model-bar-track{height:5px;background:var(--bg4);border-radius:3px;overflow:hidden}
+.model-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px;width:91.4%}
+
+/* ─── MAIN ─── */
+#main{flex:1;overflow-y:auto;padding:20px;background:var(--bg);display:flex;flex-direction:column;gap:18px}
+#main::-webkit-scrollbar{width:4px}
+#main::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px}
+
+/* ─── PAGE VIEWS ─── */
+.page{display:none;flex-direction:column;gap:18px;animation:fadein 0.3s ease}
+.page.active{display:flex}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ─── STAT CARDS ─── */
+.stat-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:18px 16px;position:relative;overflow:hidden;cursor:default;transition:border-color 0.2s,transform 0.15s}
+.stat-card:hover{border-color:var(--border2);transform:translateY(-1px)}
+.stat-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--radius-lg) var(--radius-lg) 0 0}
+.stat-card.blue::after{background:linear-gradient(90deg,var(--accent),transparent)}
+.stat-card.red::after{background:linear-gradient(90deg,var(--crit),transparent)}
+.stat-card.amber::after{background:linear-gradient(90deg,var(--high),transparent)}
+.stat-card.green::after{background:linear-gradient(90deg,var(--low),transparent)}
+.stat-card.teal::after{background:linear-gradient(90deg,var(--accent2),transparent)}
+.stat-label{font-size:10px;font-family:var(--mono);color:var(--text3);letter-spacing:0.08em;margin-bottom:10px;text-transform:uppercase}
+.stat-val{font-size:28px;font-weight:800;color:var(--text);line-height:1}
+.stat-val .unit{font-size:14px;font-weight:500;color:var(--text2)}
+.stat-meta{font-size:11px;margin-top:7px}
+.stat-meta.up{color:var(--crit)}
+.stat-meta.down{color:var(--low)}
+.stat-meta.muted{color:var(--text3)}
+.stat-ico{position:absolute;top:14px;right:14px;font-size:22px;opacity:0.18}
+
+/* ─── PANEL ─── */
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;flex-shrink:0}
+.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px}
+.panel-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--text);letter-spacing:0.03em}
+.panel-title i{font-size:17px;color:var(--accent)}
+.panel-badge{font-size:10px;font-family:var(--mono);padding:3px 9px;border-radius:10px;white-space:nowrap}
+.pb-green{background:rgba(0,245,192,0.08);color:var(--accent2);border:1px solid rgba(0,245,192,0.2)}
+.pb-red{background:rgba(255,68,68,0.1);color:var(--crit);border:1px solid rgba(255,68,68,0.25)}
+.pb-blue{background:rgba(0,200,240,0.08);color:var(--accent);border:1px solid var(--border2)}
+
+/* ─── MAP ─── */
+#mapCanvas{width:100%;height:380px;border-radius:10px;display:block;cursor:crosshair}
+.map-wrap{position:relative;border-radius:10px;overflow:hidden;background:var(--bg3)}
+.map-overlay{position:absolute;top:10px;right:10px;background:rgba(10,21,32,0.85);
+  border:1px solid var(--border);border-radius:8px;padding:8px 12px;backdrop-filter:blur(6px)}
+.map-overlay-title{font-size:9px;font-family:var(--mono);color:var(--text3);letter-spacing:0.1em;margin-bottom:6px}
+.legend-item{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text2);margin-bottom:4px}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.map-coords{position:absolute;bottom:8px;left:10px;font-size:10px;font-family:var(--mono);
+  color:var(--text3);background:rgba(10,21,32,0.7);padding:3px 8px;border-radius:6px}
+#wardTooltip{position:absolute;background:rgba(10,21,32,0.95);border:1px solid var(--border2);
+  border-radius:8px;padding:8px 12px;font-size:12px;pointer-events:none;display:none;
+  backdrop-filter:blur(8px);min-width:140px;z-index:10}
+#wardTooltip .tt-name{font-weight:700;color:var(--text);margin-bottom:4px}
+#wardTooltip .tt-row{display:flex;justify-content:space-between;gap:16px;font-family:var(--mono);font-size:11px;color:var(--text2);margin-top:2px}
+
+/* ─── WARD LIST ─── */
+.ward-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.1s;border-radius:4px}
+.ward-row:last-child{border-bottom:none}
+.ward-row:hover{background:var(--bg3);padding:9px 6px;margin:0 -6px}
+.ward-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.ward-name{font-size:13px;color:var(--text);flex:1}
+.ward-track{flex:1;height:5px;background:var(--bg4);border-radius:3px;overflow:hidden}
+.ward-bar{height:100%;border-radius:3px;transition:width 0.8s ease}
+.risk-pill{font-size:10px;font-family:var(--mono);padding:2px 8px;border-radius:8px;white-space:nowrap}
+.risk-pill.crit{background:var(--crit2);color:var(--crit);border:1px solid rgba(255,68,68,0.3)}
+.risk-pill.high{background:var(--high2);color:var(--high);border:1px solid rgba(255,140,0,0.3)}
+.risk-pill.mod{background:var(--mod2);color:var(--mod);border:1px solid rgba(255,215,64,0.3)}
+.risk-pill.low{background:var(--low2);color:var(--low);border:1px solid rgba(0,230,118,0.3)}
+
+/* ─── ALERTS ─── */
+.alert-card{display:flex;gap:12px;padding:13px;border-radius:10px;margin-bottom:10px;
+  border-left:3px solid;position:relative;overflow:hidden;cursor:pointer;transition:transform 0.15s}
+.alert-card:hover{transform:translateX(2px)}
+.alert-card:last-child{margin-bottom:0}
+.alert-card.crit{background:rgba(255,68,68,0.05);border-left-color:var(--crit)}
+.alert-card.high{background:rgba(255,140,0,0.05);border-left-color:var(--high)}
+.alert-card.info{background:rgba(0,200,240,0.05);border-left-color:var(--accent)}
+.alert-card.low{background:rgba(0,230,118,0.05);border-left-color:var(--low)}
+.alert-icon-wrap{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.alert-card.crit .alert-icon-wrap{background:rgba(255,68,68,0.12)}
+.alert-card.high .alert-icon-wrap{background:rgba(255,140,0,0.12)}
+.alert-card.info .alert-icon-wrap{background:rgba(0,200,240,0.12)}
+.alert-card.low .alert-icon-wrap{background:rgba(0,230,118,0.12)}
+.alert-icon-wrap i{font-size:18px}
+.alert-card.crit .alert-icon-wrap i{color:var(--crit)}
+.alert-card.high .alert-icon-wrap i{color:var(--high)}
+.alert-card.info .alert-icon-wrap i{color:var(--accent)}
+.alert-card.low .alert-icon-wrap i{color:var(--low)}
+.alert-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px}
+.alert-desc{font-size:12px;color:var(--text2);line-height:1.5}
+.alert-meta{font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:5px}
+.alert-dismiss{position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:4px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity 0.2s}
+.alert-card:hover .alert-dismiss{opacity:1}
+.alert-dismiss i{font-size:13px;color:var(--text3)}
+
+/* ─── AI INSIGHTS ─── */
+.insight-row{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.insight-row:last-child{border-bottom:none}
+.insight-num{width:24px;height:24px;border-radius:50%;background:rgba(0,200,240,0.1);
+  border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-family:var(--mono);color:var(--accent);flex-shrink:0;margin-top:1px}
+.insight-text{font-size:12px;color:var(--text2);line-height:1.6}
+.insight-text strong{color:var(--text)}
+
+/* ─── PROGRESS BARS ─── */
+.prog-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.prog-row:last-child{border-bottom:none}
+.prog-label{font-size:12px;color:var(--text2);width:90px;flex-shrink:0}
+.prog-track{flex:1;height:7px;background:var(--bg4);border-radius:4px;overflow:hidden}
+.prog-fill{height:100%;border-radius:4px;transition:width 1.2s cubic-bezier(.4,0,.2,1)}
+.prog-val{font-size:12px;font-family:var(--mono);width:38px;text-align:right}
+
+/* ─── GRID LAYOUTS ─── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3{display:grid;grid-template-columns:1.5fr 1fr;gap:16px}
+.gcol{display:flex;flex-direction:column;gap:16px}
+
+/* ─── CHART WRAP ─── */
+.ch-wrap{position:relative;width:100%}
+
+/* ─── WARD DETAIL ─── */
+.ward-detail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.wdc{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px}
+.wdc-label{font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px}
+.wdc-val{font-size:20px;font-weight:700;color:var(--text)}
+.wdc-sub{font-size:11px;color:var(--text2);margin-top:3px}
+
+.ward-select-wrap{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.ward-btn{padding:6px 14px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);
+  font-size:12px;font-family:var(--mono);color:var(--text2);cursor:pointer;transition:all 0.15s}
+.ward-btn:hover,.ward-btn.active{background:rgba(0,200,240,0.1);border-color:var(--border2);color:var(--accent)}
+
+/* ─── REPORTS ─── */
+.report-table{width:100%;border-collapse:collapse}
+.report-table th{text-align:left;font-size:10px;font-family:var(--mono);color:var(--text3);
+  text-transform:uppercase;letter-spacing:0.08em;padding:0 12px 10px;border-bottom:1px solid var(--border)}
+.report-table td{padding:11px 12px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)}
+.report-table tr:last-child td{border-bottom:none}
+.report-table tr:hover td{background:var(--bg3);color:var(--text)}
+.dl-btn{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;
+  font-size:11px;font-family:var(--mono);background:rgba(0,200,240,0.08);
+  border:1px solid var(--border2);color:var(--accent);cursor:pointer;transition:background 0.15s}
+.dl-btn:hover{background:rgba(0,200,240,0.15)}
+
+/* ─── SCROLLBAR GLOBAL ─── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--bg5)}
+
+/* ─── MINI SPARKLINES ─── */
+.spark-wrap{position:relative;width:100%}
+
+/* ─── SECTION HEADER ─── */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.section-title{font-size:20px;font-weight:800;color:var(--text);letter-spacing:0.02em}
+.section-sub{font-size:12px;color:var(--text3);font-family:var(--mono)}
+
+/* ─── SELECT ─── */
+select{background:var(--bg3);border:1px solid var(--border);color:var(--text2);
+  font-size:11px;font-family:var(--mono);padding:5px 10px;border-radius:7px;cursor:pointer;outline:none}
+select:focus{border-color:var(--border2)}
+
+/* ─── SCAN LINE EFFECT ─── */
+body::after{content:'';position:fixed;top:0;left:0;right:0;bottom:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);
+  pointer-events:none;z-index:1000}
+
+/* ─── PAGE SPECIFIC ─── */
+.forecast-tabs{display:flex;gap:8px;margin-bottom:16px}
+.ftab{padding:6px 16px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);
+  font-size:12px;font-family:var(--mono);color:var(--text2);cursor:pointer;transition:all 0.15s}
+.ftab.active{background:rgba(0,200,240,0.1);border-color:var(--border2);color:var(--accent)}
+
+/* ─── RESERVOIR STATUS ─── */
+.reservoir-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.res-name{font-size:13px;font-weight:700;color:var(--text)}
+.res-level-wrap{height:120px;background:var(--bg3);border-radius:8px;position:relative;overflow:hidden;border:1px solid var(--border)}
+.res-water{position:absolute;bottom:0;left:0;right:0;transition:height 1.5s cubic-bezier(.4,0,.2,1);display:flex;align-items:flex-start;justify-content:center;padding-top:8px}
+.res-pct{font-size:20px;font-weight:800;color:rgba(255,255,255,0.9);font-family:var(--mono);text-shadow:0 1px 4px rgba(0,0,0,0.5)}
+.res-label{font-size:11px;font-family:var(--mono);color:var(--text2)}
+.res-stat{display:flex;justify-content:space-between;font-size:11px}
+.res-stat-key{color:var(--text3);font-family:var(--mono)}
+.res-stat-val{color:var(--text);font-weight:600}
+
+/* ─── GROUND WATER ─── */
+.gw-meter{display:flex;flex-direction:column;gap:4px}
+.gw-bar-wrap{height:12px;background:var(--bg3);border-radius:6px;overflow:hidden;border:1px solid var(--border)}
+.gw-bar-fill{height:100%;border-radius:6px;transition:width 1s}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div class="logo" onclick="navigate('overview')">
+    <div class="logo-mark">
+      <svg viewBox="0 0 18 18"><path d="M9 1C5.5 1 2 5.5 2 10a7 7 0 0014 0c0-4.5-3.5-9-7-9zm0 12.5A5 5 0 014 10c0-2.5 2-6 5-7.8C12 4 14 7.5 14 10a5 5 0 01-5 3.5z"/><circle cx="9" cy="10" r="1.8"/></svg>
+    </div>
+    <div>
+      <div class="logo-text">AQUASENSE</div>
+      <div class="logo-sub">AI WATER INTELLIGENCE</div>
+    </div>
+  </div>
+
+  <div class="sys-status">
+    <div class="status-dot live"></div>
+    <div class="status-label">SYSTEM LIVE · 198 WARDS</div>
+  </div>
+
+  <div class="search-wrap">
+    <i class="ti ti-search"></i>
+    <input id="searchBox" placeholder="Search ward..." autocomplete="off" oninput="handleSearch(this.value)"/>
+  </div>
+
+  <div class="icon-btn" title="Notifications" onclick="navigate('alerts')">
+    <i class="ti ti-bell"></i>
+    <div class="notif-badge" id="notifBadge">4</div>
+  </div>
+  <div class="icon-btn" title="Download Report" onclick="navigate('reports')">
+    <i class="ti ti-download"></i>
+  </div>
+  <div class="icon-btn" title="Settings" onclick="navigate('settings')">
+    <i class="ti ti-settings"></i>
+  </div>
+  <div class="date-chip" id="datechip"></div>
+  <div class="user-avatar" title="Admin User">AR</div>
+</div>
+
+<div id="shell">
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="nav-section-label">Main</div>
+  <div class="nav-item active" data-page="overview" onclick="navigate('overview')">
+    <i class="ti ti-dashboard"></i> Overview
+  </div>
+  <div class="nav-item" data-page="map" onclick="navigate('map')">
+    <i class="ti ti-map-2"></i> Risk Map
+  </div>
+  <div class="nav-item" data-page="forecast" onclick="navigate('forecast')">
+    <i class="ti ti-chart-area-line"></i> Forecasting
+  </div>
+  <div class="nav-item" data-page="wards" onclick="navigate('wards')">
+    <i class="ti ti-building-community"></i> Ward Analysis
+  </div>
+
+  <div class="nav-section-label">Monitoring</div>
+  <div class="nav-item" data-page="alerts" onclick="navigate('alerts')">
+    <i class="ti ti-alert-triangle"></i> Alerts
+    <span class="nav-badge red" id="alertNavBadge">4</span>
+  </div>
+  <div class="nav-item" data-page="insights" onclick="navigate('insights')">
+    <i class="ti ti-brain"></i> AI Insights
+  </div>
+
+  <div class="nav-section-label">Data Sources</div>
+  <div class="nav-item" data-page="reservoir" onclick="navigate('reservoir')">
+    <i class="ti ti-ripple"></i> Reservoir Status
+  </div>
+  <div class="nav-item" data-page="rainfall" onclick="navigate('rainfall')">
+    <i class="ti ti-cloud-rain"></i> Rainfall Data
+  </div>
+  <div class="nav-item" data-page="groundwater" onclick="navigate('groundwater')">
+    <i class="ti ti-layers-subtract"></i> Groundwater
+  </div>
+
+  <div class="nav-section-label">System</div>
+  <div class="nav-item" data-page="reports" onclick="navigate('reports')">
+    <i class="ti ti-file-analytics"></i> Reports
+    <span class="nav-badge amber">2</span>
+  </div>
+  <div class="nav-item" data-page="settings" onclick="navigate('settings')">
+    <i class="ti ti-settings"></i> Settings
+  </div>
+
+  <div class="sidebar-model">
+    <div class="model-label">AI MODEL ACTIVE</div>
+    <div class="model-name">Random Forest v2.1</div>
+    <div class="model-acc">Accuracy: 91.4% · Last trained: 3d ago</div>
+    <div class="model-bar-track"><div class="model-bar-fill"></div></div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div id="main">
+
+<!-- ═══ OVERVIEW PAGE ═══ -->
+<div class="page active" id="page-overview">
+  <div class="section-header">
+    <div>
+      <div class="section-title">City Overview</div>
+      <div class="section-sub">Bengaluru · Real-time AI monitoring</div>
+    </div>
+    <select onchange="updateForecastPeriod(this.value)">
+      <option value="30">30-day outlook</option>
+      <option value="60">60-day outlook</option>
+      <option value="0">Current status</option>
+    </select>
+  </div>
+
+  <!-- STAT CARDS -->
+  <div class="stat-grid">
+    <div class="stat-card blue">
+      <div class="stat-label">Wards Monitored</div>
+      <div class="stat-val">198</div>
+      <div class="stat-meta muted">BBMP + BWSSB zones</div>
+      <i class="ti ti-building-community stat-ico"></i>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-label">Critical Risk Wards</div>
+      <div class="stat-val" style="color:var(--crit)">23</div>
+      <div class="stat-meta up">↑ 5 since last week</div>
+      <i class="ti ti-alert-triangle stat-ico"></i>
+    </div>
+    <div class="stat-card amber">
+      <div class="stat-label">Reservoir Storage</div>
+      <div class="stat-val">47<span class="unit">%</span></div>
+      <div class="stat-meta up">↓ 18% this month</div>
+      <i class="ti ti-ripple stat-ico"></i>
+    </div>
+    <div class="stat-card teal">
+      <div class="stat-label">Rainfall Deficit</div>
+      <div class="stat-val" style="color:var(--high)">-34<span class="unit">%</span></div>
+      <div class="stat-meta muted">Below seasonal avg</div>
+      <i class="ti ti-cloud-rain stat-ico"></i>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">AI Accuracy</div>
+      <div class="stat-val" style="color:var(--low)">91<span class="unit">%</span></div>
+      <div class="stat-meta muted">30-day forecast</div>
+      <i class="ti ti-brain stat-ico"></i>
+    </div>
+  </div>
+
+  <!-- MAP + WARDS -->
+  <div class="g3">
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title"><i class="ti ti-map-pin"></i>Bengaluru Ward Stress Map</div>
+        <div class="panel-badge pb-green">LIVE</div>
+      </div>
+      <div class="map-wrap">
+        <canvas id="mapCanvas" role="img" aria-label="Bengaluru ward water stress heatmap"></canvas>
+        <div class="map-overlay">
+          <div class="map-overlay-title">RISK LEVEL</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--low)"></div>Low (0–40)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--mod)"></div>Moderate (40–60)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--high)"></div>High (60–80)</div>
+          <div class="legend-item" style="margin-bottom:0"><div class="legend-dot" style="background:var(--crit)"></div>Critical (80–100)</div>
+        </div>
+        <div class="map-coords" id="mapCoords">12.9716° N, 77.5946° E</div>
+        <div id="wardTooltip">
+          <div class="tt-name" id="tt-name">Ward</div>
+          <div class="tt-row"><span>Risk Score</span><span id="tt-score" style="color:var(--crit)">—</span></div>
+          <div class="tt-row"><span>Status</span><span id="tt-status">—</span></div>
+          <div class="tt-row"><span>Population</span><span id="tt-pop">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="gcol">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title"><i class="ti ti-sort-descending-numbers"></i>High Risk Wards</div>
+          <div class="panel-badge pb-red">23 CRITICAL</div>
+        </div>
+        <div id="wardList"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title"><i class="ti ti-percentage"></i>Zone Risk Probability</div>
+          <div class="panel-badge pb-blue">60-DAY</div>
+        </div>
+        <div id="zoneProbs"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW -->
+  <div class="g2">
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title"><i class="ti ti-chart-line"></i>60-Day WSI Forecast</div>
+        <div style="display:flex;gap:10px;font-size:11px;color:var(--text2);align-items:center">
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:18px;height:2px;background:var(--accent);display:inline-block;border-radius:1px"></span>WSI Score</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:18px;height:2px;background:var(--crit);border-top:2px dashed var(--crit);display:inline-block"></span>Threshold</span>
+        </div>
+      </div>
+      <div class="ch-wrap" style="height:200px">
+        <canvas id="forecastChart" role="img" aria-label="60-day water stress index forecast chart">Forecast: WSI rising from 0.42 to 0.78 over 60 days, crossing critical threshold at day 38.</canvas>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title"><i class="ti ti-waves"></i>Reservoir Levels — 12 Month</div>
+        <div style="display:flex;gap:8px;font-size:11px;color:var(--text2);align-items:center">
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#3d9fff;display:inline-block"></span>KRS</span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#00f5c0;display:inline-block"></span>Cauvery</span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#ff8c00;display:inline-block"></span>TG Halli</span>
+        </div>
+      </div>
+      <div class="ch-wrap" style="height:200px">
+        <canvas id="reservoirChart" role="img" aria-label="12-month reservoir levels chart for KRS, Cauvery and TG Halli">Reservoir levels declining over 12 months across all three reservoirs.</canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MAP PAGE ═══ -->
+<div class="page" id="page-map">
+  <div class="section-header">
+    <div>
+      <div class="section-title">Water Stress Risk Map</div>
+      <div class="section-sub">Ward-level AI-predicted risk · Interactive</div>
+    </div>
+    <select onchange="updateMapPeriod(this.value)">
+      <option value="30">30-day forecast</option>
+      <option value="60">60-day forecast</option>
+      <option value="0">Current</option>
+    </select>
+  </div>
+  <div class="panel" style="flex:1">
+    <div class="map-wrap" style="height:500px">
+      <canvas id="mapCanvas2" role="img" aria-label="Large Bengaluru ward water stress map"></canvas>
+      <div class="map-overlay">
+        <div class="map-overlay-title">RISK LEVEL</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--low)"></div>Low (WSI 0–40)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--mod)"></div>Moderate (WSI 40–60)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--high)"></div>High (WSI 60–80)</div>
+        <div class="legend-item" style="margin-bottom:0"><div class="legend-dot" style="background:var(--crit)"></div>Critical (WSI 80–100)</div>
+      </div>
+      <div id="wardTooltip2" class="wardTooltip" style="position:absolute;background:rgba(10,21,32,0.95);border:1px solid rgba(0,200,240,0.3);border-radius:8px;padding:8px 12px;font-size:12px;pointer-events:none;display:none;backdrop-filter:blur(8px);min-width:140px;z-index:10">
+        <div style="font-weight:700;color:var(--text);margin-bottom:4px" id="tt2-name">Ward</div>
+        <div style="display:flex;justify-content:space-between;gap:16px;font-family:var(--mono);font-size:11px;color:var(--text2);margin-top:2px"><span>WSI Score</span><span id="tt2-score" style="color:var(--crit)">—</span></div>
+        <div style="display:flex;justify-content:space-between;gap:16px;font-family:var(--mono);font-size:11px;color:var(--text2);margin-top:2px"><span>Status</span><span id="tt2-status">—</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FORECAST PAGE ═══ -->
+<div class="page" id="page-forecast">
+  <div class="section-header">
+    <div><div class="section-title">AI Forecasting Engine</div>
+      <div class="section-sub">Random Forest · 91.4% accuracy · Updated daily</div></div>
+  </div>
+  <div class="forecast-tabs">
+    <div class="ftab active" onclick="switchFtab(this,'30')">30-Day Outlook</div>
+    <div class="ftab" onclick="switchFtab(this,'60')">60-Day Outlook</div>
+    <div class="ftab" onclick="switchFtab(this,'gw')">Groundwater Depletion</div>
+    <div class="ftab" onclick="switchFtab(this,'rain')">Rainfall Prediction</div>
+  </div>
+  <div class="g2">
+    <div class="panel" style="grid-column:1/-1">
+      <div class="panel-head">
+        <div class="panel-title"><i class="ti ti-chart-area-line"></i>Water Stress Index Forecast</div>
+        <div class="panel-badge pb-blue" id="ftab-label">30-Day Outlook</div>
+      </div>
+      <div class="ch-wrap" style="height:280px">
+        <canvas id="forecastBigChart" role="img" aria-label="Water stress index forecast chart"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title"><i class="ti ti-chart-bar"></i>Ward Risk Distribution</div>
+      </div>
+      <div class="ch-wrap" style="height:200px">
+        <canvas id="riskDistChart" role="img" aria-label="Ward risk distribution bar chart"></canvas>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title"><i class="ti ti-chart-donut"></i>City Risk Composition</div>
+      </div>
+      <div class="ch-wrap" style="height:200px">
+        <canvas id="riskDonut" role="img" aria-label="City risk composition donut chart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ WARD ANALYSIS PAGE ═══ -->
+<div class="page" id="page-wards">
+  <div class="section-header">
+    <div><div class="section-title">Ward Analysis</div>
+      <div class="section-sub">Detailed per-ward water metrics</div></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title"><i class="ti ti-building-community"></i>Select Ward</div>
+    </div>
+    <div class="ward-select-wrap" id="wardSelectBtns"></div>
+  </div>
+  <div id="wardDetailContent"></div>
+</div>
+
+<!-- ═══ ALERTS PAGE ═══ -->
+<div class="page" id="page-alerts">
+  <div class="section-header">
+    <div><div class="section-title">Active Alerts</div>
+      <div class="section-sub">AI-generated early warning notifications</div></div>
+  </div>
+  <div class="g2">
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title"><i class="ti ti-alert-octagon" style="color:var(--crit)"></i>Critical Alerts</div>
+        <div class="panel-badge pb-red">URGENT</div>
+      </div>
+      <div id="alertsCrit"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title"><i class="ti ti-alert-triangle" style="color:var(--high)"></i>High Priority</div>
+        <div class="panel-badge" style="background:rgba(255,140,0,0.1);color:var(--high);border:1px solid rgba(255,140,0,0.25)">WATCH</div>
+      </div>
+      <div id="alertsHigh"></div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title"><i class="ti ti-info-circle"></i>Informational</div>
+    </div>
+    <div id="alertsInfo"></div>
+  </div>
+</div>
+
+<!-- ═══ AI INSIGHTS PAGE ═══ -->
+<div class="page" id="page-insights">
+  <div class="section-header">
+    <div><div class="section-title">AI Insights & Recommendations</div>
+      <div class="section-sub">Generated by Random Forest model + BWSSB data fusion</div></div>
+  </div>
+  <div class="g2">
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title"><i class="ti ti-bulb"></i>Emergency Recommendations</div>
+        <div class="panel-badge pb-red">IMMEDIATE</div>
+      </div>
+      <div id="insightsEmergency"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title"><i class="ti ti-plant"></i>Conservation Strategies</div>
+        <div class="panel-badge pb-green">PROACTIVE</div>
+      </div>
+      <div id="insightsConserve"></div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title"><i class="ti ti-chart-line"></i>AI Confidence Scores by Zone</div>
+    </div>
+    <div class="ch-wrap" style="height:200px">
+      <canvas id="confidenceChart" role="img" aria-label="AI confidence scores by zone bar chart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ RESERVOIR PAGE ═══ -->
+<div class="page" id="page-reservoir">
+  <div class="section-header">
+    <div><div class="section-title">Reservoir Status</div>
+      <div class="section-sub">Live levels from KRS, Cauvery, TG Halli, Hesaraghatta</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px" id="reservoirCards"></div>
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title"><i class="ti ti-waves"></i>Storage History — Last 12 Months</div>
+    </div>
+    <div class="ch-wrap" style="height:260px">
+      <canvas id="resHistChart" role="img" aria-label="Reservoir storage history chart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ RAINFALL PAGE ═══ -->
+<div class="page" id="page-rainfall">
+  <div class="section-header">
+    <div><div class="section-title">Rainfall Data</div>
+      <div class="section-sub">IMD data · Monthly analysis · Forecast</div></div>
+  </div>
+  <div class="g2">
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title"><i class="ti ti-cloud-rain"></i>Monthly Rainfall vs Normal (mm)</div>
+      </div>
+      <div class="ch-wrap" style="height:240px">
+        <canvas id="rainfallChart" role="img" aria-label="Monthly rainfall vs normal chart"></canvas>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title"><i class="ti ti-chart-area"></i>Cumulative Deficit 2024–2025</div>
+      </div>
+      <div class="ch-wrap" style="height:240px">
+        <canvas id="deficitChart" role="img" aria-label="Cumulative rainfall deficit chart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ GROUNDWATER PAGE ═══ -->
+<div class="page" id="page-groundwater">
+  <div class="section-header">
+    <div><div class="section-title">Groundwater Levels</div>
+      <div class="section-sub">India-WRIS data · Depth below ground level (m)</div></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title"><i class="ti ti-layers-subtract"></i>Ward-wise Groundwater Depth</div>
+      <div class="panel-badge pb-red">CRITICAL ZONES</div>
+    </div>
+    <div id="gwList"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title"><i class="ti ti-chart-line"></i>Groundwater Trend (2020–2025)</div>
+    </div>
+    <div class="ch-wrap" style="height:220px">
+      <canvas id="gwChart" role="img" aria-label="Groundwater depth trend chart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ REPORTS PAGE ═══ -->
+<div class="page" id="page-reports">
+  <div class="section-header">
+    <div><div class="section-title">Reports & Export</div>
+      <div class="section-sub">Downloadable analytics summaries</div></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title"><i class="ti ti-file-analytics"></i>Available Reports</div>
+      <div class="panel-badge pb-blue">PDF + CSV</div>
+    </div>
+    <table class="report-table" id="reportsTable"></table>
+  </div>
+</div>
+
+<!-- ═══ SETTINGS PAGE ═══ -->
+<div class="page" id="page-settings">
+  <div class="section-header">
+    <div><div class="section-title">System Settings</div>
+      <div class="section-sub">Model parameters · Data sources · Notifications</div></div>
+  </div>
+  <div class="g2">
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title"><i class="ti ti-brain"></i>ML Model Configuration</div></div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div><div class="wdc-label">Model Type</div><select style="width:100%;padding:8px 12px;font-size:13px"><option>Random Forest Regressor</option><option>Gradient Boosting</option><option>LSTM Neural Network</option></select></div>
+        <div><div class="wdc-label">Forecast Window</div><select style="width:100%;padding:8px 12px;font-size:13px"><option>30 days</option><option>60 days</option><option>90 days</option></select></div>
+        <div><div class="wdc-label">Training Frequency</div><select style="width:100%;padding:8px 12px;font-size:13px"><option>Daily</option><option>Weekly</option><option>Monthly</option></select></div>
+        <div style="padding:12px;background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.2);border-radius:8px;font-size:12px;color:var(--text2)">
+          <div style="color:var(--low);font-weight:700;margin-bottom:4px">✓ Model Healthy</div>
+          Last trained 3 days ago · 91.4% accuracy · 198 wards
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title"><i class="ti ti-database"></i>Data Sources</div></div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="ward-row">
+          <i class="ti ti-check" style="color:var(--low);font-size:16px"></i>
+          <div style="flex:1"><div style="font-size:13px;color:var(--text)">BWSSB Consumption Data</div><div style="font-size:11px;color:var(--text3)">Connected · Updated hourly</div></div>
+          <div class="risk-pill low">LIVE</div>
+        </div>
+        <div class="ward-row">
+          <i class="ti ti-check" style="color:var(--low);font-size:16px"></i>
+          <div style="flex:1"><div style="font-size:13px;color:var(--text)">IMD Rainfall API</div><div style="font-size:11px;color:var(--text3)">Connected · Updated daily</div></div>
+          <div class="risk-pill low">LIVE</div>
+        </div>
+        <div class="ward-row">
+          <i class="ti ti-check" style="color:var(--low);font-size:16px"></i>
+          <div style="flex:1"><div style="font-size:13px;color:var(--text)">India-WRIS Groundwater</div><div style="font-size:11px;color:var(--text3)">Connected · Updated weekly</div></div>
+          <div class="risk-pill low">LIVE</div>
+        </div>
+        <div class="ward-row">
+          <i class="ti ti-alert-circle" style="color:var(--mod);font-size:16px"></i>
+          <div style="flex:1"><div style="font-size:13px;color:var(--text)">BBMP Ward Database</div><div style="font-size:11px;color:var(--text3)">Partial · Last sync 2h ago</div></div>
+          <div class="risk-pill mod">SYNC</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+// ─── DATA ───
+const WARDS = [
+  {name:'Whitefield',risk:3,wsi:94,pop:'3.2L',lat:0.42,lng:0.80,days:42,gw:38,cons:180,rain:-42},
+  {name:'Koramangala',risk:3,wsi:89,pop:'2.8L',lat:0.60,lng:0.65,days:50,gw:35,cons:165,rain:-38},
+  {name:'Varthur',risk:3,wsi:87,pop:'1.4L',lat:0.61,lng:0.84,days:45,gw:32,cons:155,rain:-40},
+  {name:'Bellandur',risk:2,wsi:76,pop:'2.1L',lat:0.56,lng:0.72,days:68,gw:28,cons:142,rain:-30},
+  {name:'Marathahalli',risk:2,wsi:71,pop:'2.6L',lat:0.51,lng:0.81,days:72,gw:25,cons:138,rain:-28},
+  {name:'KR Puram',risk:2,wsi:68,pop:'3.0L',lat:0.45,lng:0.72,days:80,gw:22,cons:130,rain:-25},
+  {name:'Hebbal',risk:1,wsi:54,pop:'1.8L',lat:0.32,lng:0.63,days:105,gw:18,cons:115,rain:-18},
+  {name:'Yelahanka',risk:1,wsi:47,pop:'2.0L',lat:0.26,lng:0.56,days:120,gw:16,cons:108,rain:-14},
+  {name:'Jayanagar',risk:1,wsi:44,pop:'2.2L',lat:0.68,lng:0.49,days:130,gw:14,cons:105,rain:-12},
+  {name:'Malleshwaram',risk:1,wsi:40,pop:'1.9L',lat:0.37,lng:0.45,days:140,gw:12,cons:100,rain:-10},
+  {name:'Rajajinagar',risk:0,wsi:32,pop:'2.4L',lat:0.44,lng:0.39,days:180,gw:10,cons:90,rain:-5},
+  {name:'Kengeri',risk:0,wsi:28,pop:'1.6L',lat:0.57,lng:0.32,days:200,gw:9,cons:85,rain:-3},
+  {name:'Vijayanagar',risk:0,wsi:24,pop:'2.0L',lat:0.47,lng:0.30,days:220,gw:8,cons:80,rain:-2},
+  {name:'Nagarbhavi',risk:0,wsi:20,pop:'1.3L',lat:0.62,lng:0.29,days:240,gw:7,cons:75,rain:+2},
+  {name:'HSR Layout',risk:2,wsi:70,pop:'1.7L',lat:0.71,lng:0.62,days:78,gw:24,cons:132,rain:-26},
+  {name:'BTM Layout',risk:2,wsi:65,pop:'2.3L',lat:0.65,lng:0.57,days:85,gw:20,cons:125,rain:-22},
+  {name:'Electronic City',risk:1,wsi:52,pop:'1.5L',lat:0.75,lng:0.59,days:110,gw:17,cons:112,rain:-16},
+  {name:'Banashankari',risk:0,wsi:35,pop:'2.1L',lat:0.63,lng:0.41,days:165,gw:11,cons:95,rain:-6},
+];
+
+const RISK_COLORS = ['#00e676','#ffd740','#ff8c00','#ff4444'];
+const RISK_LABELS = ['Low','Moderate','High','Critical'];
+const RISK_CLASSES = ['low','mod','high','crit'];
+
+const MONTHS = ['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May'];
+
+// ─── NAVIGATION ───
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const pg = document.getElementById('page-'+page);
+  if(pg) pg.classList.add('active');
+  const ni = document.querySelector(`[data-page="${page}"]`);
+  if(ni) ni.classList.add('active');
+  // Init page-specific stuff
+  setTimeout(()=>{
+    if(page==='overview') initOverview();
+    if(page==='map') initMapPage();
+    if(page==='forecast') initForecast();
+    if(page==='wards') initWards();
+    if(page==='alerts') renderAlerts();
+    if(page==='insights') renderInsights();
+    if(page==='reservoir') renderReservoir();
+    if(page==='rainfall') renderRainfall();
+    if(page==='groundwater') renderGroundwater();
+    if(page==='reports') renderReports();
+  },50);
+}
+
+// ─── DATE ───
+document.getElementById('datechip').textContent = new Date().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+
+// ─── MAP ENGINE ───
+function drawMap(canvasId, tooltipId, height=380) {
+  const canvas = document.getElementById(canvasId);
+  if(!canvas) return;
+  canvas.width = canvas.offsetWidth;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  ctx.fillStyle='#0a1520';
+  ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle='rgba(0,200,240,0.04)';
+  ctx.lineWidth=0.5;
+  for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+  for(let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+
+  // Compute ward positions
+  const mapW = WARDS.map(w=>({
+    ...w,
+    x: w.lng * W * 0.7 + W * 0.08,
+    y: w.lat * H * 0.85 + H * 0.05,
+    r: 14 + (w.wsi/100)*10
+  }));
+
+  // Connections
+  ctx.lineWidth=0.8;
+  mapW.forEach((a,i)=>{
+    mapW.forEach((b,j)=>{
+      if(j<=i)return;
+      const d=Math.hypot(a.x-b.x,a.y-b.y);
+      if(d<110){
+        ctx.strokeStyle=`rgba(0,200,240,${0.03+0.03*(1-d/110)})`;
+        ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+      }
+    });
+  });
+
+  // Wards
+  mapW.forEach(w=>{
+    const col=RISK_COLORS[w.risk];
+    // Outer glow
+    const g=ctx.createRadialGradient(w.x,w.y,0,w.x,w.y,w.r*3);
+    const rgb=hexToRgb(col);
+    g.addColorStop(0,`rgba(${rgb},${0.18+w.risk*0.05})`);
+    g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.beginPath();ctx.arc(w.x,w.y,w.r*3,0,Math.PI*2);
+    ctx.fillStyle=g;ctx.fill();
+    // Circle
+    ctx.beginPath();ctx.arc(w.x,w.y,w.r,0,Math.PI*2);
+    ctx.fillStyle=col+'28';ctx.fill();
+    ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.stroke();
+    // Center dot
+    ctx.beginPath();ctx.arc(w.x,w.y,3,0,Math.PI*2);
+    ctx.fillStyle=col;ctx.fill();
+    // Label
+    ctx.fillStyle=col;
+    ctx.font=`500 10px 'JetBrains Mono'`;
+    ctx.textAlign='center';
+    ctx.fillText(w.name,w.x,w.y+w.r+12);
+  });
+
+  // City label
+  ctx.fillStyle='rgba(0,200,240,0.2)';
+  ctx.font="800 13px 'Syne'";
+  ctx.textAlign='left';
+  ctx.fillText('BENGALURU',10,18);
+  ctx.fillStyle='rgba(0,200,240,0.1)';
+  ctx.font="500 9px 'JetBrains Mono'";
+  ctx.fillText('WARD STRESS MAP',10,30);
+
+  // Tooltip
+  canvas.onmousemove = (e)=>{
+    const rect=canvas.getBoundingClientRect();
+    const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+    let hit=null;
+    mapW.forEach(w=>{
+      if(Math.hypot(mx-w.x,my-w.y)<w.r+8) hit=w;
+    });
+    const tt=document.getElementById(tooltipId);
+    if(hit && tt){
+      tt.style.display='block';
+      tt.style.left=(mx+14)+'px';
+      tt.style.top=(my-10)+'px';
+      const idSuffix=tooltipId.replace('wardTooltip','tt').replace('2','2-');
+      if(tooltipId==='wardTooltip'){
+        document.getElementById('tt-name').textContent=hit.name;
+        document.getElementById('tt-score').textContent=hit.wsi+'/100';
+        document.getElementById('tt-score').style.color=RISK_COLORS[hit.risk];
+        document.getElementById('tt-status').textContent=RISK_LABELS[hit.risk];
+        document.getElementById('tt-pop').textContent=hit.pop;
+      } else {
+        document.getElementById('tt2-name').textContent=hit.name;
+        document.getElementById('tt2-score').textContent=hit.wsi+'/100';
+        document.getElementById('tt2-score').style.color=RISK_COLORS[hit.risk];
+        document.getElementById('tt2-status').textContent=RISK_LABELS[hit.risk];
+      }
+    } else if(tt){tt.style.display='none'}
+  };
+  canvas.onmouseleave=()=>{
+    const tt=document.getElementById(tooltipId);
+    if(tt)tt.style.display='none';
+  };
+  return mapW;
+}
+
+function hexToRgb(hex){
+  const r=parseInt(hex.slice(1,3),16);
+  const g=parseInt(hex.slice(3,5),16);
+  const b=parseInt(hex.slice(5,7),16);
+  return `${r},${g},${b}`;
+}
+
+// ─── CHART DEFAULTS ───
+const CHART_DEFAULTS = {
+  color:'#3d5f75',
+  borderColor:'rgba(0,200,240,0.08)',
+  font:{family:"'JetBrains Mono', monospace",size:11},
+};
+Object.assign(Chart.defaults, CHART_DEFAULTS);
+Chart.defaults.elements.point.radius=0;
+Chart.defaults.elements.point.hoverRadius=4;
+
+function gridOpts(){
+  return {grid:{color:'rgba(0,200,240,0.07)'},ticks:{color:'#3d5f75'}};
+}
+
+// ─── WARD LIST ───
+function renderWardList(){
+  const el=document.getElementById('wardList');
+  if(!el)return;
+  const top=WARDS.filter(w=>w.risk>=1).sort((a,b)=>b.wsi-a.wsi).slice(0,8);
+  el.innerHTML=top.map(w=>`
+    <div class="ward-row" onclick="navigate('wards');setTimeout(()=>selectWard('${w.name}'),100)">
+      <div class="ward-dot" style="background:${RISK_COLORS[w.risk]}"></div>
+      <div class="ward-name">${w.name}</div>
+      <div class="ward-track"><div class="ward-bar" style="width:${w.wsi}%;background:${RISK_COLORS[w.risk]}"></div></div>
+      <div class="risk-pill ${RISK_CLASSES[w.risk]}">${RISK_LABELS[w.risk]}</div>
+    </div>`).join('');
+}
+
+// ─── ZONE PROBS ───
+function renderZoneProbs(){
+  const el=document.getElementById('zoneProbs');
+  if(!el)return;
+  const zones=[
+    {label:'East Zone',pct:88,risk:3},{label:'South Zone',pct:74,risk:2},
+    {label:'North Zone',pct:48,risk:1},{label:'West Zone',pct:31,risk:0},{label:'Central',pct:22,risk:0}
+  ];
+  el.innerHTML=zones.map(z=>`
+    <div class="prog-row">
+      <div class="prog-label">${z.label}</div>
+      <div class="prog-track"><div class="prog-fill" style="width:${z.pct}%;background:${RISK_COLORS[z.risk]}"></div></div>
+      <div class="prog-val" style="color:${RISK_COLORS[z.risk]}">${z.pct}%</div>
+    </div>`).join('');
+}
+
+// ─── CHARTS ───
+let charts={};
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id]}}
+
+function initForecastChart(){
+  destroyChart('forecastChart');
+  const days20=Array.from({length:20},(_,i)=>`Day ${i*3+1}`);
+  const wsi=[0.42,0.44,0.47,0.48,0.51,0.53,0.55,0.58,0.60,0.63,0.65,0.67,0.70,0.72,0.73,0.75,0.76,0.77,0.78,0.78];
+  charts['forecastChart']=new Chart(document.getElementById('forecastChart'),{
+    type:'line',
+    data:{labels:days20,datasets:[
+      {label:'WSI Score',data:wsi,borderColor:'#00c8f0',backgroundColor:'rgba(0,200,240,0.04)',fill:true,tension:0.4,borderWidth:2},
+      {label:'Critical Threshold',data:Array(20).fill(0.70),borderColor:'rgba(255,68,68,0.6)',borderDash:[5,4],borderWidth:1.5,fill:false}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0f1d2c',borderColor:'rgba(0,200,240,0.3)',borderWidth:1,titleColor:'#00c8f0',bodyColor:'#7aa0b8',mode:'index',intersect:false}},scales:{x:gridOpts(),y:{...gridOpts(),min:0.3,max:0.9}}}
+  });
+}
+
+function initReservoirChart(canvasId='reservoirChart'){
+  destroyChart(canvasId);
+  const c=document.getElementById(canvasId);
+  if(!c)return;
+  charts[canvasId]=new Chart(c,{
+    type:'line',
+    data:{labels:MONTHS,datasets:[
+      {label:'KRS',data:[82,91,94,88,79,68,59,52,47,41,36,32],borderColor:'#3d9fff',backgroundColor:'rgba(61,159,255,0.04)',fill:true,tension:0.4,borderWidth:2},
+      {label:'Cauvery',data:[74,80,85,80,71,62,54,48,43,38,34,31],borderColor:'#00f5c0',backgroundColor:'rgba(0,245,192,0.04)',fill:true,tension:0.4,borderWidth:2},
+      {label:'TG Halli',data:[66,72,76,71,63,55,49,43,38,33,28,24],borderColor:'#ff8c00',backgroundColor:'rgba(255,140,0,0.04)',fill:true,tension:0.4,borderWidth:2},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0f1d2c',borderColor:'rgba(0,200,240,0.3)',borderWidth:1,titleColor:'#00c8f0',bodyColor:'#7aa0b8',mode:'index',intersect:false}},scales:{x:gridOpts(),y:{...gridOpts(),min:0,max:100,ticks:{...gridOpts().ticks,callback:v=>v+'%'}}}}
+  });
+}
+
+// ─── OVERVIEW ───
+function initOverview(){
+  renderWardList();
+  renderZoneProbs();
+  drawMap('mapCanvas','wardTooltip',380);
+  initForecastChart();
+  initReservoirChart('reservoirChart');
+}
+
+// ─── MAP PAGE ───
+function initMapPage(){
+  drawMap('mapCanvas2','wardTooltip2',500);
+}
+function updateMapPeriod(v){}
+
+// ─── FORECAST PAGE ───
+let forecastBigChartInst=null;
+function initForecast(){
+  initForecastBig('30');
+  initRiskDist();
+  initRiskDonut();
+}
+
+function initForecastBig(period){
+  destroyChart('forecastBigChart');
+  const days=period==='gw'||period==='rain'?12:period==='30'?10:20;
+  const labels=period==='gw'||period==='rain'?MONTHS:Array.from({length:days},(_,i)=>`Day ${i*(period==='60'?3:3)+1}`);
+  let ds1,ds2;
+  if(period==='rain'){
+    ds1={label:'Actual Rainfall (mm)',data:[82,146,198,184,120,45,22,18,38,64,92,108],borderColor:'#3d9fff',backgroundColor:'rgba(61,159,255,0.05)',fill:true,tension:0.4,borderWidth:2};
+    ds2={label:'Normal Rainfall (mm)',data:[110,160,210,190,140,60,30,28,50,80,110,130],borderColor:'rgba(0,245,192,0.5)',borderDash:[5,4],borderWidth:1.5,fill:false};
+  } else if(period==='gw'){
+    ds1={label:'Groundwater Depth (m bgl)',data:[12,13,14,16,18,21,24,27,30,33,36,38],borderColor:'#ff8c00',backgroundColor:'rgba(255,140,0,0.05)',fill:true,tension:0.4,borderWidth:2};
+    ds2={label:'Safe Limit (m)',data:Array(12).fill(20),borderColor:'rgba(255,68,68,0.5)',borderDash:[5,4],borderWidth:1.5,fill:false};
+  } else {
+    const pts=period==='30'?[0.42,0.44,0.47,0.50,0.53,0.56,0.59,0.63,0.67,0.70]:[0.42,0.44,0.47,0.48,0.51,0.53,0.55,0.58,0.60,0.63,0.65,0.67,0.70,0.72,0.73,0.75,0.76,0.77,0.78,0.78];
+    ds1={label:'WSI Score',data:pts,borderColor:'#00c8f0',backgroundColor:'rgba(0,200,240,0.05)',fill:true,tension:0.4,borderWidth:2};
+    ds2={label:'Critical Threshold',data:Array(days).fill(0.70),borderColor:'rgba(255,68,68,0.6)',borderDash:[5,4],borderWidth:1.5,fill:false};
+  }
+  charts['forecastBigChart']=new Chart(document.getElementById('forecastBigChart'),{
+    type:'line',data:{labels,datasets:[ds1,ds2]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0f1d2c',borderColor:'rgba(0,200,240,0.3)',borderWidth:1,titleColor:'#00c8f0',bodyColor:'#7aa0b8',mode:'index',intersect:false}},scales:{x:gridOpts(),y:gridOpts()}}
+  });
+}
+
+function switchFtab(el,period){
+  document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const labels={'30':'30-Day Outlook','60':'60-Day Outlook','gw':'Groundwater Depletion','rain':'Rainfall Prediction'};
+  document.getElementById('ftab-label').textContent=labels[period];
+  initForecastBig(period);
+}
+
+function initRiskDist(){
+  destroyChart('riskDistChart');
+  const riskMonths=MONTHS.map((_,i)=>{
+    const base=[45,38,28,18];
+    return base.map(b=>Math.max(5,b+Math.round((i-6)*1.2+Math.random()*5-2)));
+  });
+  charts['riskDistChart']=new Chart(document.getElementById('riskDistChart'),{
+    type:'bar',
+    data:{labels:MONTHS,datasets:[
+      {label:'Critical',data:[18,19,21,22,20,19,21,22,23,22,23,23],backgroundColor:'rgba(255,68,68,0.7)',stack:'s'},
+      {label:'High',data:[28,29,31,30,28,27,28,29,30,29,30,31],backgroundColor:'rgba(255,140,0,0.7)',stack:'s'},
+      {label:'Moderate',data:[42,40,38,36,35,36,37,36,35,36,36,35],backgroundColor:'rgba(255,215,64,0.7)',stack:'s'},
+      {label:'Low',data:[110,110,108,110,115,116,112,111,110,111,109,109],backgroundColor:'rgba(0,230,118,0.7)',stack:'s'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0f1d2c',borderColor:'rgba(0,200,240,0.3)',borderWidth:1,titleColor:'#00c8f0',bodyColor:'#7aa0b8',mode:'index',intersect:false}},scales:{x:{...gridOpts(),stacked:true},y:{...gridOpts(),stacked:true}}}
+  });
+}
+
+function initRiskDonut(){
+  destroyChart('riskDonut');
+  charts['riskDonut']=new Chart(document.getElementById('riskDonut'),{
+    type:'doughnut',
+    data:{labels:['Low Risk','Moderate','High Risk','Critical'],datasets:[{data:[109,35,31,23],backgroundColor:['rgba(0,230,118,0.8)','rgba(255,215,64,0.8)','rgba(255,140,0,0.8)','rgba(255,68,68,0.8)'],borderColor:['#00e676','#ffd740','#ff8c00','#ff4444'],borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{display:false},tooltip:{backgroundColor:'#0f1d2c',borderColor:'rgba(0,200,240,0.3)',borderWidth:1,titleColor:'#00c8f0',bodyColor:'#7aa0b8'}}}
+  });
+}
+
+// ─── WARDS ───
+function initWards(){
+  const btns=document.getElementById('wardSelectBtns');
+  if(!btns)return;
+  btns.innerHTML=WARDS.map(w=>`<div class="ward-btn${w.name==='Whitefield'?' active':''}" onclick="selectWard('${w.name}')">${w.name}</div>`).join('');
+  selectWard('Whitefield');
+}
+
+function selectWard(name){
+  document.querySelectorAll('.ward-btn').forEach(b=>{
+    b.classList.toggle('active',b.textContent===name);
+  });
+  const w=WARDS.find(x=>x.name===name);
+  if(!w)return;
+  const col=RISK_COLORS[w.risk];
+  const el=document.getElementById('wardDetailContent');
+  el.innerHTML=`
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title" style="font-size:15px"><i class="ti ti-map-pin" style="color:${col}"></i>${w.name} — Detailed Analysis</div>
+      <div class="risk-pill ${RISK_CLASSES[w.risk]}" style="font-size:12px;padding:4px 12px">${RISK_LABELS[w.risk]} Risk</div>
+    </div>
+    <div class="ward-detail-grid">
+      <div class="wdc">
+        <div class="wdc-label">Water Stress Index</div>
+        <div class="wdc-val" style="color:${col}">${w.wsi}/100</div>
+        <div class="wdc-sub">AI predicted score</div>
+      </div>
+      <div class="wdc">
+        <div class="wdc-label">Predicted Shortage</div>
+        <div class="wdc-val" style="color:${col}">${w.days} days</div>
+        <div class="wdc-sub">From current date</div>
+      </div>
+      <div class="wdc">
+        <div class="wdc-label">Population</div>
+        <div class="wdc-val">${w.pop}</div>
+        <div class="wdc-sub">Affected residents</div>
+      </div>
+      <div class="wdc">
+        <div class="wdc-label">Groundwater Depth</div>
+        <div class="wdc-val">${w.gw}m</div>
+        <div class="wdc-sub">Below ground level</div>
+      </div>
+      <div class="wdc">
+        <div class="wdc-label">Consumption</div>
+        <div class="wdc-val">${w.cons}L</div>
+        <div class="wdc-sub">Per capita per day</div>
+      </div>
+      <div class="wdc">
+        <div class="wdc-label">Rainfall Deficit</div>
+        <div class="wdc-val" style="color:${w.rain<0?'var(--crit)':'var(--low)'}">${w.rain}%</div>
+        <div class="wdc-sub">vs seasonal normal</div>
+      </div>
+    </div>
+    <div class="ch-wrap" style="height:200px">
+      <canvas id="wardChart" role="img" aria-label="Ward-specific water metrics chart for ${w.name}"></canvas>
+    </div>
+  </div>`;
+  // Ward chart
+  destroyChart('wardChart');
+  const past6=['Nov','Dec','Jan','Feb','Mar','Apr'];
+  const base=w.wsi;
+  charts['wardChart']=new Chart(document.getElementById('wardChart'),{
+    type:'line',
+    data:{labels:past6,datasets:[
+      {label:'WSI',data:past6.map((_,i)=>Math.max(5,Math.round(base*0.6+i*(base*0.07)+Math.random()*5))),borderColor:col,backgroundColor:col+'0a',fill:true,tension:0.4,borderWidth:2},
+      {label:'Groundwater (m)',data:past6.map((_,i)=>Math.round(w.gw*0.6+i*(w.gw*0.07))),borderColor:'#ff8c00',borderDash:[4,3],fill:false,tension:0.4,borderWidth:1.5},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0f1d2c',borderColor:'rgba(0,200,240,0.3)',borderWidth:1,titleColor:'#00c8f0',bodyColor:'#7aa0b8',mode:'index',intersect:false}},scales:{x:gridOpts(),y:gridOpts()}}
+  });
+}
+
+// ─── ALERTS ───
+const ALERTS_DATA = {
+  crit:[
+    {icon:'ti-alert-octagon',title:'Whitefield — Severe Shortage Imminent',desc:'AI predicts critical water shortage in <strong style="color:var(--crit)">42 days</strong>. Groundwater at 12% capacity. Emergency intervention required.',time:'2 hours ago · AI generated'},
+    {icon:'ti-droplet-off',title:'Koramangala — Groundwater Critical',desc:'Borewell depth increased to 35m. Extraction rate is 3x recharge rate. Immediate regulation needed.',time:'4 hours ago · India-WRIS sensor'},
+    {icon:'ti-flame',title:'Varthur — Supply-Demand Gap',desc:'Projected 45-day shortage. Population of 1.4L will face acute shortfall. Deploy tankers immediately.',time:'6 hours ago · BWSSB data'},
+  ],
+  high:[
+    {icon:'ti-trending-down',title:'KRS Reservoir Below 50%',desc:'KRS storage at 47% and declining 1.8% per week. At this rate, will reach critical 20% in 50 days.',time:'1 hour ago · BWSSB'},
+    {icon:'ti-truck',title:'Tanker Deployment Recommended',desc:'AI recommends deploying 18 additional tankers across East Bengaluru for next 3 weeks.',time:'3 hours ago · AI recommendation'},
+    {icon:'ti-building-factory-2',title:'Industrial Overuse Detected',desc:'Bellandur IT corridor consuming 240% above residential rate. Immediate audit required.',time:'8 hours ago · BWSSB meters'},
+  ],
+  info:[
+    {icon:'ti-cloud-rain',title:'Southwest Monsoon Update',desc:'IMD forecast: 34% below normal rainfall expected in June–July 2025. Pre-monsoon deficit critical.',time:'12 hours ago · IMD API',type:'info'},
+    {icon:'ti-check',title:'Nagarbhavi — Safe Zone Confirmed',desc:'West Bengaluru ward maintains healthy groundwater at 7m depth. Low risk classification confirmed.',time:'1 day ago · Survey',type:'low'},
+    {icon:'ti-refresh',title:'Model Retrained Successfully',desc:'Random Forest model updated with latest BWSSB + IMD data. Accuracy improved to 91.4%.',time:'3 days ago · System',type:'info'},
+  ]
+};
+
+function renderAlerts(){
+  ['crit','high','info'].forEach(type=>{
+    const el=document.getElementById('alerts'+type.charAt(0).toUpperCase()+type.slice(1));
+    if(!el)return;
+    const data=ALERTS_DATA[type];
+    el.innerHTML=data.map((a,i)=>`
+      <div class="alert-card ${type==='info'?(a.type||'info'):type}" data-dismiss="${type}-${i}">
+        <div class="alert-icon-wrap"><i class="ti ${a.icon}"></i></div>
+        <div style="flex:1">
+          <div class="alert-title">${a.title}</div>
+          <div class="alert-desc">${a.desc}</div>
+          <div class="alert-meta">${a.time}</div>
+        </div>
+        <div class="alert-dismiss" onclick="dismissAlert('${type}-${i}')"><i class="ti ti-x"></i></div>
+      </div>`).join('');
+  });
+}
+
+function dismissAlert(id){
+  const el=document.querySelector(`[data-dismiss="${id}"]`);
+  if(el){el.style.opacity='0';el.style.transform='translateX(20px)';el.style.transition='all 0.3s';setTimeout(()=>el.remove(),300)}
+}
+
+// ─── INSIGHTS ───
+const INSIGHTS = {
+  emergency:[
+    {n:1,text:'<strong>Deploy 18 additional tankers immediately</strong> to East Bengaluru (Whitefield, Koramangala, Varthur). AI estimates 42-day window before critical shortage.'},
+    {n:2,text:'<strong>Mandate 25% industrial water reduction</strong> in Bellandur and Marathahalli IT corridors effective immediately for next 45 days.'},
+    {n:3,text:'<strong>Initiate emergency borewell regulation</strong> in 12 high-extraction wards — groundwater depletion is 3x the natural recharge rate.'},
+    {n:4,text:'<strong>Pre-position emergency water reserves</strong> — 500 ML storage recommended in East Zone as buffer before monsoon arrival.'},
+  ],
+  conserve:[
+    {n:5,text:'<strong>Launch 60L per capita per day campaign</strong> targeting residential areas of Koramangala and Whitefield. Current avg: 180L/person/day.'},
+    {n:6,text:'<strong>Rainwater harvesting mandate</strong> for all buildings over 1000 sq ft in East Zone. Projected recovery: 12% of deficit.'},
+    {n:7,text:'<strong>Leak detection survey</strong> across 45km of aging BWSSB pipes in Central Bengaluru. Estimated 18% distribution loss.'},
+    {n:8,text:'<strong>Recycled water incentive program</strong> for IT parks and commercial complexes in tech corridor. Saves an estimated 80 MLD.'},
+  ]
+};
+
+function renderInsights(){
+  ['emergency','conserve'].forEach(type=>{
+    const el=document.getElementById('insights'+type.charAt(0).toUpperCase()+type.slice(1));
+    if(!el)return;
+    el.innerHTML=INSIGHTS[type].map(i=>`
+      <div class="insight-row">
+        <div class="insight-num">${i.n}</div>
+        <div class="insight-text">${i.text}</div>
+      </div>`).join('');
+  });
+  // Confidence chart
+  destroyChart('confidenceChart');
+  charts['confidenceChart']=new Chart(document.getElementById('confidenceChart'),{
+    type:'bar',
+    data:{labels:['East Zone','South Zone','West Zone','North Zone','Central'],
+      datasets:[{label:'AI Confidence %',data:[94,91,88,87,85],backgroundColor:['rgba(255,68,68,0.7)','rgba(255,140,0,0.7)','rgba(0,230,118,0.7)','rgba(0,230,118,0.7)','rgba(0,200,240,0.7)'],borderRadius:5,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0f1d2c',borderColor:'rgba(0,200,240,0.3)',borderWidth:1,titleColor:'#00c8f0',bodyColor:'#7aa0b8'}},scales:{x:gridOpts(),y:{...gridOpts(),min:70,max:100,ticks:{...gridOpts().ticks,callback:v=>v+'%'}}}}
+  });
+}
+
+// ─── RESERVOIR ───
+const RES_DATA=[
+  {name:'KRS Reservoir',pct:47,color:'#3d9fff',cap:'49.5 TMC',inflow:'0.8 TMC/day',outflow:'1.1 TMC/day',trend:'↓ 1.8%/week'},
+  {name:'Cauvery River',pct:38,color:'#00f5c0',cap:'32.0 TMC',inflow:'0.6 TMC/day',outflow:'0.9 TMC/day',trend:'↓ 2.1%/week'},
+  {name:'TG Halli',pct:24,color:'#ff8c00',cap:'3.9 TMC',inflow:'0.15 TMC/day',outflow:'0.22 TMC/day',trend:'↓ 2.4%/week'},
+  {name:'Hesaraghatta',pct:18,color:'#ff4444',cap:'3.2 TMC',inflow:'0.08 TMC/day',outflow:'0.14 TMC/day',trend:'↓ 3.1%/week'},
+];
+
+function renderReservoir(){
+  const el=document.getElementById('reservoirCards');
+  if(!el)return;
+  el.innerHTML=RES_DATA.map(r=>{
+    const riskClass=r.pct>60?'low':r.pct>40?'mod':r.pct>25?'high':'crit';
+    return `<div class="reservoir-card">
+      <div class="res-name">${r.name}</div>
+      <div class="res-level-wrap">
+        <div class="res-water" style="height:${r.pct}%;background:${r.color}22;border-top:2px solid ${r.color}">
+          <div class="res-pct" style="color:${r.color}">${r.pct}%</div>
+        </div>
+      </div>
+      <div class="risk-pill ${riskClass}" style="align-self:flex-start">${r.pct>60?'Adequate':r.pct>40?'Moderate':r.pct>25?'Low':'Critical'}</div>
+      <div class="res-stat"><span class="res-stat-key">Capacity</span><span class="res-stat-val">${r.cap}</span></div>
+      <div class="res-stat"><span class="res-stat-key">Inflow</span><span class="res-stat-val" style="color:var(--low)">${r.inflow}</span></div>
+      <div class="res-stat"><span class="res-stat-key">Outflow</span><span class="res-stat-val" style="color:var(--crit)">${r.outflow}</span></div>
+      <div class="res-stat"><span class="res-stat-key">Trend</span><span class="res-stat-val" style="color:var(--high)">${r.trend}</span></div>
+    </div>`;
+  }).join('');
+  initReservoirChart('resHistChart');
+}
+
+// ─── RAINFALL ───
+function renderRainfall(){
+  destroyChart('rainfallChart');
+  destroyChart('deficitChart');
+  charts['rainfallChart']=new Chart(document.getElementById('rainfallChart'),{
+    type:'bar',
+    data:{labels:MONTHS,datasets:[
+      {label:'Actual (mm)',data:[82,146,198,184,120,45,22,18,38,64,92,108],backgroundColor:'rgba(61,159,255,0.7)',borderRadius:4,borderSkipped:false},
+      {label:'Normal (mm)',data:[110,160,210,190,140,60,30,28,50,80,110,130],type:'line',borderColor:'#00f5c0',backgroundColor:'transparent',tension:0.4,borderWidth:2,borderDash:[4,3]},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0f1d2c',borderColor:'rgba(0,200,240,0.3)',borderWidth:1,titleColor:'#00c8f0',bodyColor:'#7aa0b8',mode:'index',intersect:false}},scales:{x:gridOpts(),y:gridOpts()}}
+  });
+  const cumDef=[];let acc=0;
+  [82,146,198,184,120,45,22,18,38,64,92,108].forEach((v,i)=>{acc+=(v-[110,160,210,190,140,60,30,28,50,80,110,130][i]);cumDef.push(Math.round(acc));});
+  charts['deficitChart']=new Chart(document.getElementById('deficitChart'),{
+    type:'line',
+    data:{labels:MONTHS,datasets:[{label:'Cumulative Deficit (mm)',data:cumDef,borderColor:'#ff4444',backgroundColor:'rgba(255,68,68,0.05)',fill:true,tension:0.4,borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0f1d2c',borderColor:'rgba(0,200,240,0.3)',borderWidth:1,titleColor:'#00c8f0',bodyColor:'#7aa0b8'}},scales:{x:gridOpts(),y:{...gridOpts(),ticks:{...gridOpts().ticks,callback:v=>v+'mm'}}}}
+  });
+}
+
+// ─── GROUNDWATER ───
+function renderGroundwater(){
+  const el=document.getElementById('gwList');
+  if(!el)return;
+  const sorted=[...WARDS].sort((a,b)=>b.gw-a.gw).slice(0,10);
+  el.innerHTML=sorted.map(w=>{
+    const risk=w.gw>30?3:w.gw>20?2:w.gw>12?1:0;
+    return `<div class="gw-meter">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div style="font-size:12px;color:var(--text)">${w.name}</div>
+        <div style="font-size:12px;font-family:var(--mono);color:${RISK_COLORS[risk]}">${w.gw}m bgl</div>
+      </div>
+      <div class="gw-bar-wrap"><div class="gw-bar-fill" style="width:${Math.min(100,w.gw*2.5)}%;background:${RISK_COLORS[risk]}"></div></div>
+    </div>`;
+  }).join('<div style="height:10px"></div>');
+
+  destroyChart('gwChart');
+  charts['gwChart']=new Chart(document.getElementById('gwChart'),{
+    type:'line',
+    data:{labels:['2020','2021','2022','2023','2024','2025'],datasets:[
+      {label:'Whitefield',data:[12,16,20,26,32,38],borderColor:RISK_COLORS[3],tension:0.4,borderWidth:2,fill:false},
+      {label:'Koramangala',data:[10,14,18,22,28,35],borderColor:RISK_COLORS[2],tension:0.4,borderWidth:2,fill:false},
+      {label:'Hebbal',data:[8,9,11,13,15,18],borderColor:RISK_COLORS[1],tension:0.4,borderWidth:2,fill:false},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0f1d2c',borderColor:'rgba(0,200,240,0.3)',borderWidth:1,titleColor:'#00c8f0',bodyColor:'#7aa0b8',mode:'index',intersect:false}},scales:{x:gridOpts(),y:{...gridOpts(),reverse:true,ticks:{...gridOpts().ticks,callback:v=>v+'m'}}}}
+  });
+}
+
+// ─── REPORTS ───
+function renderReports(){
+  const el=document.getElementById('reportsTable');
+  if(!el)return;
+  const reports=[
+    {name:'May 2025 Water Risk Report',type:'Monthly',wards:198,date:'May 07, 2025',status:'Ready'},
+    {name:'East Zone Emergency Brief',type:'Alert',wards:42,date:'May 06, 2025',status:'Ready'},
+    {name:'60-Day WSI Forecast',type:'Forecast',wards:198,date:'May 05, 2025',status:'Ready'},
+    {name:'Reservoir Depletion Analysis',type:'Analysis',wards:4,date:'May 04, 2025',status:'Ready'},
+    {name:'April 2025 Water Risk Report',type:'Monthly',wards:198,date:'Apr 30, 2025',status:'Archived'},
+    {name:'Groundwater Extraction Study',type:'Study',wards:23,date:'Apr 28, 2025',status:'Archived'},
+    {name:'AI Model Accuracy Report Q1',type:'Technical',wards:198,date:'Mar 31, 2025',status:'Archived'},
+  ];
+  el.innerHTML=`<thead><tr>
+    <th>Report Name</th><th>Type</th><th>Wards</th><th>Date</th><th>Status</th><th>Download</th>
+  </tr></thead><tbody>${reports.map(r=>`<tr>
+    <td style="color:var(--text);font-weight:500">${r.name}</td>
+    <td><span class="panel-badge pb-blue">${r.type}</span></td>
+    <td style="font-family:var(--mono)">${r.wards}</td>
+    <td style="font-family:var(--mono);color:var(--text3)">${r.date}</td>
+    <td><span class="risk-pill ${r.status==='Ready'?'low':'mod'}">${r.status}</span></td>
+    <td><div class="dl-btn"><i class="ti ti-download" style="font-size:13px"></i>PDF</div></td>
+  </tr>`).join('')}</tbody>`;
+}
+
+// ─── SEARCH ───
+function handleSearch(q){
+  if(!q){initOverview();return;}
+  const found=WARDS.filter(w=>w.name.toLowerCase().includes(q.toLowerCase()));
+  if(found.length){navigate('wards');setTimeout(()=>selectWard(found[0].name),100);}
+}
+
+// ─── INIT ───
+initOverview();
+window.addEventListener('resize',()=>{
+  const activePage=document.querySelector('.page.active');
+  if(activePage&&activePage.id==='page-overview') drawMap('mapCanvas','wardTooltip',380);
+  if(activePage&&activePage.id==='page-map') drawMap('mapCanvas2','wardTooltip2',500);
+});
+</script>
+</body>
+</html>
+
